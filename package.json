@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare" : "tsc -p . ", 
+    "prepare": "tsc -p .",
     "start": "node index.js"
   },
   "repository": {
@@ -15,7 +15,7 @@
   "keywords": [
     "autorest"
   ],
-  "author": "",
+  "author": "Microsoft Corporation",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/olydis/autorest-interactive/issues"
@@ -28,7 +28,7 @@
     "@types/js-yaml": "^3.5.30",
     "@types/jsonpath": "^0.1.29",
     "@types/node": "^7.0.18",
-    "typescript" : "*"
+    "typescript": "*"
   },
   "dependencies": {
     "d3": "^4.8.0",
