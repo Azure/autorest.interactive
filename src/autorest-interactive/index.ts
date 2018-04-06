@@ -4,7 +4,7 @@ import * as d3 from "d3";
 import { nodes, stringify } from "jsonpath";
 import { JsonPath } from "../jsonrpc/types";
 
-window.onerror = e => remote.dialog.showErrorBox("Unhandled Error", e);
+window.onerror = e => remote.dialog.showErrorBox("Unhandled Error", '' + e);
 
 function remoteEval(expression: string): any {
   return ipcRenderer.sendSync("remoteEval", expression);

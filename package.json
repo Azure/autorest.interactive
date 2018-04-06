@@ -4,9 +4,8 @@
   "description": "AutoRest Interactive View",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "tsc -p .",
-    "start": "node index.js"
+    "build": "tsc -p .",
+    "start": "tsc -p . >nul && node index.js"
   },
   "repository": {
     "type": "git",
@@ -21,16 +20,15 @@
     "url": "https://github.com/olydis/autorest-interactive/issues"
   },
   "homepage": "https://github.com/olydis/autorest-interactive#readme",
-  "devDependencies": {
+  "devDependencies": {},
+  "dependencies": {
     "@types/d3": "^4.8.0",
     "@types/electron": "^1.4.37",
     "@types/jquery": "^2.0.43",
     "@types/js-yaml": "^3.5.30",
     "@types/jsonpath": "^0.1.29",
     "@types/node": "^7.0.18",
-    "typescript": "*"
-  },
-  "dependencies": {
+    "typescript": "2.8.1",
     "d3": "^4.8.0",
     "electron": "^1.6.7",
     "jquery": "^3.2.1",

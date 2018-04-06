@@ -2,6 +2,9 @@
 
 Allows interactively inspecting a run of AutoRest.
 
+To use, simply add `--use=Azure/autorest.interactive` to your command line.
+The first run may take a while.
+
 ![Example](./sample.png)
 
 ## AutoRest Pipeline configuration
@@ -11,7 +14,6 @@ pipeline:
   autorest-interactive:
     scope: __status
 ```
-
 
 
 # Contributing
