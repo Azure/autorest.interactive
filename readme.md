@@ -2,8 +2,7 @@
 
 Allows interactively inspecting a run of AutoRest.
 
-To use, simply add `--use=Azure/autorest.interactive` to your command line.
-The first run may take a while.
+To use, simply add `--use=Azure/autorest.interactive` to your command line (it may take a while for the interactive window to appear).
 
 ![Example](./sample.png)
 
