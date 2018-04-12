@@ -4,7 +4,7 @@ import { createReadStream, createWriteStream } from "fs";
 import { safeLoad } from "js-yaml";
 
 // required to actually keep process running when window is closed
-app.on('window-all-closed', () => { })
+app.on('window-all-closed', () => app.quit());
 
 const pluginHost = new AutoRestPluginHost();
 pluginHost.Add("autorest-interactive", async initiator => {
