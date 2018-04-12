@@ -1,8 +1,8 @@
-import { ipcRenderer, remote } from "electron";
-import * as $ from "jquery";
-import * as d3 from "d3";
-import { nodes, stringify } from "jsonpath";
-import { JsonPath } from "../jsonrpc/types";
+import * as d3 from 'd3';
+import { ipcRenderer, remote } from 'electron';
+import * as $ from 'jquery';
+import { stringify } from 'jsonpath';
+import { JsonPath } from '../jsonrpc/types';
 
 window.onerror = e => remote.dialog.showErrorBox("Unhandled Error", '' + e);
 
@@ -183,13 +183,15 @@ function showNodeDetails(node: PipelineNode): void {
   table.append($("<tr>")
     .append($("<td>").text("Configuration Scope"))
     .append($("<td>").text(stringify(["$"].concat(node.configScope as any)))));
-  table.append($("<tr>")
-    .append($("<td>").text("Output"))
-    .append($("<td>").append(node.state.outputUris.map(uri => $("<a>")
-      .attr("href", "#")
-      .text(uri)
-      .click(() => showUriDetails(uri))
-      .append($("<br>"))))));
+  if (Array.isArray(node.state.outputUris)) {
+    table.append($("<tr>")
+      .append($("<td>").text("Output"))
+      .append($("<td>").append(...node.state.outputUris.map(uri => $("<a>")
+        .attr("href", "#")
+        .text(uri)
+        .click(() => showUriDetails(uri))
+        .append($("<br>"))))));
+  }
 
   // ext. extension
   const extensionName = remoteEval(`(external[${JSON.stringify(node.pluginName)}] || {}).extensionName`);
@@ -197,15 +199,26 @@ function showNodeDetails(node: PipelineNode): void {
     table.append($("<tr>")
       .append($("<td>").text("Extension"))
       .append($("<td>").append(extensionName)));
-    const traffic: [number, boolean, string][] = remoteEval(`external[${JSON.stringify(node.pluginName)}].inspectTraffic`);
-    for (const [timeStamp, isCore2Ext, payload] of traffic) {
+
+    const addEntry = (timeStamp: number | string, isCore2Ext: boolean, payload: string) => {
       const payloadShortened = payload.length > 200 ? payload.substr(0, 200) + "..." : payload;
+      const title = (typeof timeStamp === "number" ? new Date(timeStamp).toLocaleTimeString() : timeStamp) + (isCore2Ext ? " (core => ext)" : " (ext => core)");
       table.append($("<tr>").css("background", isCore2Ext ? "#FEE" : "#EFE")
-        .append($("<td>").text(new Date(timeStamp).toLocaleTimeString() + (isCore2Ext ? " (core => ext)" : " (ext => core)")))
+        .append($("<td>").text(title))
         .append($("<td>").append($("<a>")
           .attr("href", "#")
           .text(payloadShortened)
-          .click(() => showOverlay("", $("<textarea>").val(payload))))));
+          .click(() => showOverlay(title, $("<textarea>").val(payload))))));
+    };
+
+    const traffic: [number, boolean, string][] = remoteEval(`external[${JSON.stringify(node.pluginName)}].__inspectTraffic`);
+    if (Array.isArray(traffic)) { // requires AutoRest > TODO
+      // all
+      addEntry("ALL", true, traffic.filter(x => x[1]).map(x => x[2]).join(""));
+      addEntry("ALL", false, traffic.filter(x => !x[1]).map(x => x[2]).join(""));
+      // timeline
+      for (const [timeStamp, isCore2Ext, payload] of traffic)
+        addEntry(timeStamp, isCore2Ext, payload);
     }
   }
   showOverlay(node.key, table);
