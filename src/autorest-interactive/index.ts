@@ -1,16 +1,58 @@
-import * as d3 from 'd3';
 import { ipcRenderer, remote } from 'electron';
 import * as $ from 'jquery';
+import * as d3 from 'd3';
 import { stringify } from 'jsonpath';
 import { JsonPath } from '../jsonrpc/types';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as cp from 'child_process';
 
-window.onerror = e => remote.dialog.showErrorBox("Unhandled Error", '' + e);
+// window.onerror = e => remote.dialog.showErrorBox("Unhandled Error", e);
+window.onerror = (e) => { };
 
 function remoteEval(expression: string): any {
   return ipcRenderer.sendSync("remoteEval", expression);
 }
 function readFile(uri: string): any {
   return ipcRenderer.sendSync("readFile", uri);
+}
+
+let nodes: PipelineNode[];
+let opened = false;
+let tmpFolder;
+function deconstruct(identifier) {
+    if (Array.isArray(identifier)) {
+        return [].concat.apply([], [...identifier.map(deconstruct)]);
+    }
+    return identifier.replace(/([a-z]+)([A-Z])/g, '$1 $2').replace(/(\d+)([a-z|A-Z]+)/g, '$1 $2').split(/[\W|_]+/);
+}
+exports.deconstruct = deconstruct;
+function copyToTmp(outputUris) {
+    if (opened) {
+        if (outputUris) {
+            for (const each of outputUris) {
+                let filename = each.replace(/\%..?/g, '.').replace(/(\d*)\?/g, '($1)+').replace('mem:///', '').replace('https...', '');
+                if (filename.endsWith('...')) {
+                    filename = filename.replace('...', '.json');
+                }
+                fs.writeFileSync(
+                    path.join(tmpFolder, filename),
+                    readFile(each)
+                );
+            }
+        }
+    }
+}
+function openInCode() {
+    if (!opened) {
+        opened = true;
+        tmpFolder = fs.mkdtempSync(`${os.tmpdir()}/autorest-tmp-`);
+        cp.exec(`code --new-window ${tmpFolder}`);
+        for (const node of nodes) {
+            copyToTmp(node.state.outputUris);
+        }
+    }
 }
 
 type PipelineNodeState = {
@@ -46,7 +88,7 @@ $(() => {
     return ((selfFinished || Date.now()) - (previousFinished || selfFinished)) / 1000;
   };
 
-  const nodes = Object.keys(pipeline).map(key => Object.assign(pipeline[key], { key: key, displayName: key.split("/") }));
+  nodes = Object.keys(pipeline).map(key => Object.assign(pipeline[key], { key: key, displayName: key.split("/") }));
   const links: { source: PipelineNode, target: PipelineNode }[] = [].concat.apply([],
     nodes.map(node => node.inputs.map(input => {
       return {
@@ -80,8 +122,7 @@ $(() => {
       }
     }
   }
-
-  const vis = d3.select("#pipelineGraph").attr("viewBox", `0 0 ${width + 2} ${height + 2}`).append("g").attr("transform", `translate(${width / 2 + 1},${height / 2 + 1})`);
+  const vis = d3.select("#pipelineGraph").attr("viewBox", `0 0 ${width} ${height}`).append("g").attr("transform", `translate(${width / 2 - 1},${height / 2 - 1})`);
 
   let lastFootprint: string = null;
   const render = () => {
@@ -128,8 +169,8 @@ $(() => {
             : "#000"));
       update.append("text")
         .attr("text-anchor", "middle")
-        .attr("style", d => `font-size: ${1.6 / (d.displayName.reduce((a, b) => Math.max(a, b.length), 0) + 1)}em`)
-        .html(d => d.displayName.map((l, i) => `<tspan x="0" y="${(i - (d.displayName.length - 1) / 2) * 1.3 + 0.3}em">${l}</tspan>`).join(""))
+        .attr("style", d => `font-size: ${1.7 / (d.displayName.reduce((a, b) => Math.max(a, b.length), 0) + 1)}em`)
+                        .html(d => d.displayName.map((l, i) => `<tspan x="0" y="${(i - (d.displayName.length - 1) / 2) * 1.3 + 0.4}em">${l}</tspan>`).join(""))
         .attr("fill", d => d.state.state === "failed" ? "#FFF" : "#000").attr("stroke-width", 0);
       update.append("text")
         .attr("text-anchor", "middle")
@@ -151,6 +192,7 @@ $(() => {
       node.state.finishedAt = states[node.key]._finishedAt;
       if (node.state.state === "complete" && !node.state.outputUris) {
         node.state.outputUris = remoteEval(`tasks[${JSON.stringify(node.key)}]._result().map(x => x.key)`);
+        copyToTmp(node.state.outputUris);
       }
     }
   };
@@ -172,6 +214,7 @@ function showOverlay(title: string, content: JQuery): void {
     .append($("<button>").text("X").click(() => overlay.remove()))
     .append($("<span>").text(title)));
   overlay.append($("<div>").append(content));
+  overlay.click(() => {});
   $("#overlays").append(overlay);
 }
 
@@ -183,15 +226,13 @@ function showNodeDetails(node: PipelineNode): void {
   table.append($("<tr>")
     .append($("<td>").text("Configuration Scope"))
     .append($("<td>").text(stringify(["$"].concat(node.configScope as any)))));
-  if (Array.isArray(node.state.outputUris)) {
     table.append($("<tr>")
       .append($("<td>").text("Output"))
-      .append($("<td>").append(...node.state.outputUris.map(uri => $("<a>")
-        .attr("href", "#")
-        .text(uri)
-        .click(() => showUriDetails(uri))
-        .append($("<br>"))))));
-  }
+      .append($("<td>").append(node.state.outputUris.map(uri => $("<a>")
+      .attr("href", "#")
+      .text(uri)
+      .click(() => showUriDetails(uri))
+      .append($("<br>"))))));
 
   // ext. extension
   const extensionName = remoteEval(`(external[${JSON.stringify(node.pluginName)}] || {}).extensionName`);
@@ -199,26 +240,15 @@ function showNodeDetails(node: PipelineNode): void {
     table.append($("<tr>")
       .append($("<td>").text("Extension"))
       .append($("<td>").append(extensionName)));
-
-    const addEntry = (timeStamp: number | string, isCore2Ext: boolean, payload: string) => {
-      const payloadShortened = payload.length > 200 ? payload.substr(0, 200) + "..." : payload;
-      const title = (typeof timeStamp === "number" ? new Date(timeStamp).toLocaleTimeString() : timeStamp) + (isCore2Ext ? " (core => ext)" : " (ext => core)");
-      table.append($("<tr>").css("background", isCore2Ext ? "#FEE" : "#EFE")
-        .append($("<td>").text(title))
-        .append($("<td>").append($("<a>")
-          .attr("href", "#")
-          .text(payloadShortened)
-          .click(() => showOverlay(title, $("<textarea>").val(payload))))));
-    };
-
-    const traffic: [number, boolean, string][] = remoteEval(`external[${JSON.stringify(node.pluginName)}].__inspectTraffic`);
-    if (Array.isArray(traffic)) { // requires AutoRest > TODO
-      // all
-      addEntry("ALL", true, traffic.filter(x => x[1]).map(x => x[2]).join(""));
-      addEntry("ALL", false, traffic.filter(x => !x[1]).map(x => x[2]).join(""));
-      // timeline
-      for (const [timeStamp, isCore2Ext, payload] of traffic)
-        addEntry(timeStamp, isCore2Ext, payload);
+    const traffic = remoteEval(`external[${JSON.stringify(node.pluginName)}].__inspectTraffic`);
+    for (const [timeStamp, isCore2Ext, payload] of traffic) {
+        const payloadShortened = payload.length > 200 ? payload.substr(0, 200) + "..." : payload;
+        table.append($("<tr>").css("background", isCore2Ext ? "#FEE" : "#EFE")
+            .append($("<td>").text(new Date(timeStamp).toLocaleTimeString() + (isCore2Ext ? " (core => ext)" : " (ext => core)")))
+            .append($("<td>").append($("<a>")
+            .attr("href", "#")
+            .text(payloadShortened)
+            .click(() => showOverlay("", $("<textarea>").val(payload))))));
     }
   }
   showOverlay(node.key, table);
@@ -228,7 +258,7 @@ function showUriDetails(uri: string): void {
   const content = $("<pre>").css("font-family", "monospace").text(readFile(uri));
   content.click(e => {
     const s = window.getSelection();
-    showBlameTreeDetails(remoteEval(`blame(${JSON.stringify(uri)}, ${JSON.stringify({ index: s.anchorOffset })})`));
+    // showBlameTreeDetails(remoteEval(`blame(${JSON.stringify(uri)}, ${JSON.stringify({ index: s.anchorOffset })})`));
   });
   showOverlay(uri, content);
 }
@@ -336,7 +366,7 @@ function showBlameTreeDetails(blameTree: BlameTree): void {
       .text(d => "")
       .attr("fill", "#000").attr("stroke-width", 0);
   }
-  showOverlay(`Blame`, $(content));
+  showOverlay(`Blame`, <any>$(content));
 }
 
 // let deltaX: number | null = null;

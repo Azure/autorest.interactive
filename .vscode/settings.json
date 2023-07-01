@@ -1,20 +1,20 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-  "editor.formatOnSave": true,
-  "[typescript]": {
-    "editor.formatOnPaste": true,
-    "editor.tabSize": 2,
-    "editor.detectIndentation": false
-  },
-  "files.exclude": {
-    "node_modules/**": true,
-    "**/*.js": true,
-    "**/*.js.map": true,
-    "**/*.d.ts": true,
-    "**/.git": true,
-    "**/.svn": true,
-    "**/.hg": true,
-    "**/.DS_Store": true
-  },
-  "typescript.tsdk": "node_modules\\typescript\\lib"
+    "editor.formatOnSave": true,
+    "[typescript]": {
+        "editor.formatOnPaste": true,
+        "editor.tabSize": 2,
+        "editor.detectIndentation": false
+    },
+    "files.exclude": {
+        "node_modules/**": true,
+        // "**/*.js": true,
+        "**/*.js.map": true,
+        "**/*.d.ts": true,
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true
+    },
+    "typescript.tsdk": "node_modules\\typescript\\lib"
 }
